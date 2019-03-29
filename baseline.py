@@ -19,7 +19,7 @@ from keras.optimizers import Adam
 from keras.utils import np_utils
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import log_loss
-
+from Model_dir.attention_model import get_attention_cv_model
 
 t1 = time.time()
 ###################################################################################################
@@ -72,25 +72,6 @@ y = np_utils.to_categorical(y_true)
 
 
 ###################################################################################################################################
-# 建立模型
-from model_utils import AttentivePoolingLayer
-def get_attention_cv_model():
-    inp = Input(shape=(MAX_SEQUENCE_LENGTH,))
-    emb = Embedding(nb_words, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH, weights=[embedding_matrix],
-                    trainable=True,  dropout=0.1)(inp)
-    att=AttentivePoolingLayer()(emb)
-
-    fc1 = Dense(256, activation='relu')(att)
-    fc2 = Dense(64, activation='relu')(fc1)
-    fc2 = BatchNormalization()(fc2)
-    output = Dense(2, activation="softmax")(fc2)
-    model = Model(inputs=inp, outputs=output)
-    adam = Adam(lr=1e-3)
-    model.compile(optimizer=adam, loss="categorical_crossentropy", metrics=['accuracy'])
-    model.summary()
-    return model
-
-
 from sklearn.model_selection import KFold
 
 folds = 4
@@ -109,7 +90,7 @@ for ii, (idx_train, idx_val) in enumerate(skf.split(X_train)):
     y_tr = y[idx_train]
     y_te = y[idx_val]
 
-    model = get_attention_cv_model()
+    model = get_attention_cv_model(MAX_SEQUENCE_LENGTH, nb_words, EMBEDDING_DIM, embedding_matrix)
     early_stop = EarlyStopping(patience=5)
     check_point = ModelCheckpoint('cate_model.hdf5', monitor="val_acc", mode="max", save_best_only=True, verbose=1)
 
@@ -130,12 +111,9 @@ for ii, (idx_train, idx_val) in enumerate(skf.split(X_train)):
     gc.collect()
 
 test_pred[:] = test_pred_cv.mean(axis=0)
-
 preds = [i[1] for i in test_pred]
-
 res = pd.DataFrame()
 res['ID'] = test['ID']
 res['Pred'] = preds
-
 res.to_csv('../summit/attention_base.csv', index = False, quoting = 3)
 
